@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>古文</title>
+  <link rel="stylesheet" href="/static/app.css?v=15" />
+</head>
+<body class="show-py show-vern">
+  <header>
+    <button type="button" id="home" class="brand">古文</button>
+    <button type="button" id="openCatalog">目录</button>
+    <form id="searchForm" class="search">
+      <input id="q" autocomplete="off" placeholder="搜题目、作者，或半句诗" />
+    </form>
+    <div class="toggles">
+      <label><input type="checkbox" id="pyToggle" checked /> 拼音</label>
+      <label><input type="checkbox" id="vernToggle" checked disabled /> 白话</label>
+      <button type="button" id="openSettings">设置</button>
+    </div>
+  </header>
+  <main class="read">
+    <div id="empty" class="empty" hidden>
+      <p>打开目录选一首，或在上面搜半句。</p>
+      <div class="examples">
+        <button type="button" data-q="床前明月光">床前明月光</button>
+        <button type="button" data-q="大江东去">大江东去</button>
+        <button type="button" data-q="关关雎鸠">关关雎鸠</button>
+      </div>
+    </div>
+    <article id="poem" hidden>
+      <header class="poem-head">
+        <h1 id="poemTitle"></h1>
+        <p id="poemMeta" class="meta"></p>
+        <p id="variant" class="hint" hidden></p>
+      </header>
+      <div id="verse"></div>
+      <section id="study" class="study" hidden>
+        <div class="study-bar">
+          <button type="button" id="closeStudy">收起</button>
+        </div>
+        <button type="button" id="interpret">用白话讲一遍</button>
+        <p id="sideMsg" class="msg"></p>
+        <p id="used" class="hint"></p>
+        <div id="summary" class="summary" hidden></div>
+        <div id="vernBlock" class="vern-block" hidden></div>
+        <dl id="words"></dl>
+        <div id="chat"></div>
+        <form id="askForm" class="ask">
+          <input id="ask" placeholder="问这句，或问一个词" autocomplete="off" />
+          <button type="submit">问</button>
+        </form>
+      </section>
+    </article>
+  </main>
+  <div id="poemTools" class="poem-tools" hidden>
+    <p id="speakMsg" class="hint"></p>
+    <div class="title-actions">
+      <button type="button" id="speak">朗读</button>
+      <select id="voicePick" class="voice-pick">
+        <option value="zh-CN-YunjianNeural">男声 · 朗读</option>
+        <option value="zh-CN-YunyangNeural">男声 · 清楚</option>
+        <option value="zh-CN-YunxiNeural">男声 · 年轻</option>
+      </select>
+      <label class="rate-pick">
+        <span id="rateLabel">稍慢</span>
+        <input id="ratePick" type="range" min="70" max="120" step="5" value="85" aria-label="语速" />
+      </label>
+      <button type="button" id="fav">收藏</button>
+      <button type="button" id="openStudy">白话</button>
+    </div>
+  </div>
+  <div id="catalogBack" class="catalog-back" hidden></div>
+  <div id="catalog" class="catalog">
+    <div class="shelves" id="shelves"></div>
+    <div class="genres" id="genres" hidden></div>
+    <p class="list-meta" id="listMeta"></p>
+    <div class="list-scroll" id="list"></div>
+    <p class="foot">原文来自开源诗库，已转简体。白话由你配置的 AI 现写。</p>
+  </div>
+  <div id="glyph" class="glyph-pop" hidden>
+    <button type="button" id="closeGlyph" class="pop-close">关闭</button>
+    <div class="glyph-head">
+      <div id="glyphChar" class="glyph-char"></div>
+      <div class="glyph-meta">
+        <p id="glyphReading" class="glyph-reading"></p>
+        <p id="glyphLine" class="glyph-line"></p>
+      </div>
+    </div>
+    <div id="alts" class="alts"></div>
+    <form id="readingForm">
+      <input id="readingInput" placeholder="改读音" autocomplete="off" spellcheck="false" />
+      <button type="submit">记住</button>
+      <button type="button" id="resetReading">恢复</button>
+    </form>
+    <p id="glyphMsg" class="msg"></p>
+    <h3 id="inlineLabel" hidden>这一句里</h3>
+    <p id="glyphInline" class="glyph-inline" hidden></p>
+    <h3 id="sensesLabel" hidden>文言里还常作</h3>
+    <ul id="glyphSenses"></ul>
+    <dl id="glyphWords"></dl>
+    <p id="glyphUsed" class="hint"></p>
+  </div>
+  <dialog id="settings">
+    <h2>免费接口</h2>
+    <p class="hint">按这个顺序自动换。一家额度用完或连不上，就用下一家。密钥不在这个页面上。</p>
+    <ol id="providerList"></ol>
+    <div class="dialog-actions">
+      <button type="button" id="closeSettings">关闭</button>
+    </div>
+    <p id="settingsMsg" class="msg"></p>
+  </dialog>
+  <script src="/static/app.js?v=13"></script>
+</body>
+</html>
