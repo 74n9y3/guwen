@@ -3,11 +3,11 @@
 在自己电脑上读唐诗、宋诗、宋词和其他古文。可以搜索、看拼音、点一个字看解释，也可以让男声把一首诗读出来。
 
 <p>
-  <img src="images/reading.png" alt="纳兰性德《江行》，拼音在字上，白话在右侧" width="920" />
+  <img src="images/reading.png" alt="纳兰性德《江行》，拼音在字上，白话在右侧" width="1200" />
 </p>
 
 <p>
-  <img src="images/catalog.png" alt="目录里的唐诗三百首" width="920" />
+  <img src="images/catalog.png" alt="目录里的唐诗三百首" width="1200" />
 </p>
 
 ## 把诗库放进 data
