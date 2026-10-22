@@ -28,7 +28,7 @@ DB_PATH = ROOT / "data" / "poems.db"
 SPEECH_DIR = ROOT / "data" / "speech"
 SETTINGS_PATH = ROOT / "data" / "settings.json"
 STATIC = ROOT / "static"
-ENV_PATH = Path("/Users/eamon/Documents/crypto-analyst/.env")
+ENV_PATH = ROOT / ".env"
 
 READING_CHARS = set("abcdefghijklmnopqrstuvwxyzüāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜńňǹḿ")
 SETTINGS_LOCK = threading.Lock()
