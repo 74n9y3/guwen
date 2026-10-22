@@ -145,6 +145,19 @@ def read_env(path: Path) -> dict[str, str]:
 def provider_chain() -> list[dict]:
     env = read_env(ENV_PATH)
     chain: list[dict] = []
+    custom_key = env.get("LLM_API_KEY", "").strip()
+    custom_base = env.get("LLM_BASE_URL", "").strip()
+    custom_model = env.get("LLM_MODEL", "").strip()
+    if custom_key and custom_base and custom_model:
+        chain.append(
+            {
+                "id": "custom",
+                "name": env.get("LLM_PROVIDER", "").strip() or "自备接口",
+                "model": custom_model,
+                "base_url": custom_base,
+                "api_key": custom_key,
+            }
+        )
     bai_key = env.get("BAI_API_KEY", "").strip()
     use_bai = env.get("LLM_TRY_BAI_AFTER_GROQ", "true").lower() != "false"
     if bai_key and use_bai:

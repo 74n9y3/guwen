@@ -5,8 +5,7 @@ if [[ ! -x .venv/bin/python ]]; then
   python3 -m venv .venv
   .venv/bin/pip install -r requirements.txt
 fi
-if [[ ! -f data/poems.db ]]; then
-  echo "第一次使用，正在建立诗库，可能要几分钟…"
-  .venv/bin/python import_poetry.py
+if [[ "$(head -c 15 data/poems.db 2>/dev/null)" != "SQLite format 3" ]]; then
+  ./获取诗库.command
 fi
 exec .venv/bin/python server.py
