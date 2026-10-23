@@ -6,6 +6,6 @@ if [[ ! -x .venv/bin/python ]]; then
   .venv/bin/pip install -r requirements.txt
 fi
 if [[ "$(head -c 15 data/poems.db 2>/dev/null)" != "SQLite format 3" ]]; then
-  ./获取诗库.command
+  ./get-poems.command
 fi
 exec .venv/bin/python server.py

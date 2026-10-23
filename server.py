@@ -47,6 +47,17 @@ CREATE TABLE IF NOT EXISTS ai_notes (
   body TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS ai_notes_en (
+  poem_id INTEGER PRIMARY KEY,
+  body TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ai_readings (
+  poem_id INTEGER PRIMARY KEY,
+  body TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS ai_messages (
   id INTEGER PRIMARY KEY,
   poem_id INTEGER NOT NULL,
@@ -69,8 +80,48 @@ CREATE TABLE IF NOT EXISTS glosses (
 """
 
 
+NOTE_TABLES = {"zh": "ai_notes", "en": "ai_notes_en"}
+TITLE_LINE = -1
+
+EN_ERRORS = {
+    "没有返回正文": "The model returned nothing",
+    "没有可用的免费接口。": "No AI provider is configured. See the README to add one in .env.",
+    "免费接口都没通。": "None of the AI providers responded. ",
+    "找不到这首": "Poem not found",
+    "先写问题": "Type a question first",
+    "问题太长了，缩短一点": "The question is too long; please shorten it",
+    "这个字对不上": "That character doesn't match the text",
+    "标点不用解释": "Punctuation has no gloss",
+    "这个字不用标音": "This character takes no pinyin",
+    "读音只用拼音字母": "Use pinyin letters only",
+    "换个字再搜": "Try different search words",
+    "朗读暂时连不上": "Text-to-speech is unreachable right now",
+    "没有生成声音": "No audio was produced",
+    "这首没有可以读的字": "Nothing to read aloud in this poem",
+    "内容太长": "Request too large",
+    "请求读不懂": "Malformed request",
+    "出错了": "Something went wrong",
+    "核对读音时没读懂回答": "Couldn't parse the AI's pronunciation check",
+}
+
+
 class AppError(Exception):
     pass
+
+
+def pick_lang(value: str | None) -> str:
+    return "en" if str(value or "").strip().lower().startswith("en") else "zh"
+
+
+def localize(message: str, lang: str) -> str:
+    if lang != "en":
+        return message
+    for source, target in EN_ERRORS.items():
+        if message == source:
+            return target
+        if message.startswith(source):
+            return target + message[len(source) :]
+    return message
 
 
 def connect() -> sqlite3.Connection:
@@ -222,12 +273,12 @@ def message_text(payload: dict) -> str:
     return str(content or "").strip()
 
 
-def call_one(provider: dict, messages: list[dict], temperature: float) -> str:
+def call_one(provider: dict, messages: list[dict], temperature: float, max_tokens: int = 2000) -> str:
     body = json.dumps(
         {
             "model": provider["model"],
             "temperature": temperature,
-            "max_tokens": 2000,
+            "max_tokens": max_tokens,
             "messages": messages,
         },
         ensure_ascii=False,
@@ -241,7 +292,7 @@ def call_one(provider: dict, messages: list[dict], temperature: float) -> str:
         headers["X-Title"] = "guwen"
     request = urllib.request.Request(chat_url(provider["base_url"]), data=body, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(request, timeout=40) as response:
+        with urllib.request.urlopen(request, timeout=40 if max_tokens <= 2000 else 120) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as error:
         detail = redact(error.read().decode("utf-8", "replace"))
@@ -254,14 +305,14 @@ def call_one(provider: dict, messages: list[dict], temperature: float) -> str:
     return text
 
 
-def call_model(messages: list[dict], temperature: float = 0.3) -> tuple[str, str]:
+def call_model(messages: list[dict], temperature: float = 0.3, max_tokens: int = 2000) -> tuple[str, str]:
     chain = provider_chain()
     if not chain:
         raise AppError("没有可用的免费接口。")
     errors = []
     for provider in chain:
         try:
-            text = call_one(provider, messages, temperature)
+            text = call_one(provider, messages, temperature, max_tokens)
             return text, provider["name"]
         except Exception as error:
             detail = redact(str(error))
@@ -327,7 +378,8 @@ def readings_for(char: str) -> list[str]:
     return options
 
 
-def line_tokens(text: str, fixes: dict[int, str]) -> list[dict]:
+def line_tokens(text: str, fixes: dict[int, str], ai: dict[int, str] | None = None) -> list[dict]:
+    ai = ai or {}
     try:
         raw = pinyin(text, style=Style.TONE, heteronym=False, errors=lambda chars: [""])
     except Exception:
@@ -344,10 +396,19 @@ def line_tokens(text: str, fixes: dict[int, str]) -> list[dict]:
         han = is_hanzi(char)
         reading = ""
         if han:
-            reading = fixes.get(index) or (raw[index][0] if raw[index] else "")
+            reading = fixes.get(index) or ai.get(index) or (raw[index][0] if raw[index] else "")
             if reading == char:
                 reading = ""
-        tokens.append({"t": char, "p": reading, "han": han, "i": index, "fixed": index in fixes})
+        tokens.append(
+            {
+                "t": char,
+                "p": reading,
+                "han": han,
+                "i": index,
+                "fixed": index in fixes,
+                "ai": index in ai and index not in fixes,
+            }
+        )
     return tokens
 
 
@@ -370,7 +431,7 @@ def list_item(row: sqlite3.Row) -> dict:
     }
 
 
-def load_poem(conn: sqlite3.Connection, poem_id: int) -> dict:
+def load_poem(conn: sqlite3.Connection, poem_id: int, lang: str = "zh") -> dict:
     row = conn.execute("SELECT * FROM poems WHERE id = ?", (poem_id,)).fetchone()
     if row is None:
         raise AppError("找不到这首")
@@ -380,22 +441,42 @@ def load_poem(conn: sqlite3.Connection, poem_id: int) -> dict:
         (poem_id,),
     ):
         fixes.setdefault(fix["line_no"], {})[fix["offset"]] = fix["reading"]
+    ai_row = conn.execute("SELECT body FROM ai_readings WHERE poem_id = ?", (poem_id,)).fetchone()
+    ai_items = json.loads(ai_row["body"]).get("items", []) if ai_row else []
+    ai_fixes: dict[int, dict[int, str]] = {}
+    for item in ai_items:
+        if item.get("changed"):
+            ai_fixes.setdefault(item["line"], {})[item["offset"]] = item["reading"]
+    reading_notes = [
+        {
+            "line": item["line"],
+            "offset": item["offset"],
+            "char": item["char"],
+            "reading": item["reading"],
+            "changed": bool(item.get("changed")),
+            "note": item.get(lang) or item.get("zh") or "",
+        }
+        for item in ai_items
+    ]
     lines = []
     for index, text in enumerate(poem_lines(row)):
-        lines.append({"tokens": line_tokens(text, fixes.get(index, {}))})
-    note_row = conn.execute("SELECT body FROM ai_notes WHERE poem_id = ?", (poem_id,)).fetchone()
+        lines.append({"tokens": line_tokens(text, fixes.get(index, {}), ai_fixes.get(index))})
+    note_row = conn.execute(f"SELECT body FROM {NOTE_TABLES[lang]} WHERE poem_id = ?", (poem_id,)).fetchone()
     note = json.loads(note_row["body"]) if note_row else None
     messages = [
         {"role": item["role"], "content": item["content"]}
         for item in conn.execute(
-            "SELECT role, content FROM ai_messages WHERE poem_id = ? ORDER BY id",
-            (poem_id,),
+            "SELECT role, content FROM ai_messages WHERE poem_id = ? AND lang = ? ORDER BY id",
+            (poem_id, lang),
         )
     ]
     favorite = conn.execute("SELECT 1 FROM favorites WHERE poem_id = ?", (poem_id,)).fetchone()
     return {
         "id": row["id"],
         "title": row["title"],
+        "title_tokens": line_tokens(row["title"] or "", {}, ai_fixes.get(TITLE_LINE)),
+        "readings_checked": ai_row is not None,
+        "reading_notes": reading_notes,
         "author": row["author"],
         "dynasty": row["dynasty"],
         "genre": row["genre"],
@@ -441,28 +522,48 @@ def select_lines_for_model(lines: list[str]) -> tuple[list[str], bool]:
     return chosen, len(chosen) < len(lines)
 
 
-def interpret(poem_id: int, refresh: bool) -> dict:
+def interpret(poem_id: int, refresh: bool, lang: str = "zh") -> dict:
+    table = NOTE_TABLES[lang]
     conn = connect()
     try:
         if not refresh:
-            cached = conn.execute("SELECT body FROM ai_notes WHERE poem_id = ?", (poem_id,)).fetchone()
+            cached = conn.execute(f"SELECT body FROM {table} WHERE poem_id = ?", (poem_id,)).fetchone()
             if cached:
                 return json.loads(cached["body"])
         row, lines = poem_plain_lines(conn, poem_id)
         sent, clipped = select_lines_for_model(lines)
         clip_note = ""
-        if clipped:
-            clip_note = f"全诗 {len(lines)} 句，下面只给开头 {len(sent)} 句。lines 只覆盖这 {len(sent)} 句。\n"
-        system = (
-            "你在帮一个人读这一首诗词。用简体白话，短，紧贴原文。"
-            "不要写教案，不要写考点，不要写套话赏析。"
-            "典故拿不准就明说不确定，不要编书名。"
-            "只返回 JSON，不要 Markdown。"
-            '{"summary":"两三句说明这首在说什么","lines":["与原文逐句对应的白话"],'
-            '"words":[{"word":"原文中的词","note":"在这一句里的意思"}]}'
-            f"lines 必须正好 {len(sent)} 条，顺序与原文一致，不要合并，不要漏。"
-            "words 最多 8 个，只挑会绊住现代读者的字词。"
-        )
+        if lang == "en":
+            if clipped:
+                clip_note = (
+                    f"The poem has {len(lines)} lines; only the first {len(sent)} are given below. "
+                    f"\"lines\" covers only these {len(sent)}.\n"
+                )
+            system = (
+                "You are helping an English-speaking learner of Chinese read this classical poem. "
+                "Write in plain, natural English. Keep it short and close to the original. "
+                "No lesson plans, no exam points, no stock appreciation essays. "
+                "If you are unsure about an allusion, say so; never invent sources. "
+                "Return JSON only, no Markdown. "
+                '{"summary":"two or three sentences on what the poem is about",'
+                '"lines":["an English rendering of each original line"],'
+                '"words":[{"word":"a word from the original, in Chinese characters","note":"what it means in this line, in English"}]} '
+                f"\"lines\" must have exactly {len(sent)} items, in the original order, none merged or skipped. "
+                "\"words\": at most 8, only the ones likely to trip up a learner."
+            )
+        else:
+            if clipped:
+                clip_note = f"全诗 {len(lines)} 句，下面只给开头 {len(sent)} 句。lines 只覆盖这 {len(sent)} 句。\n"
+            system = (
+                "你在帮一个人读这一首诗词。用简体白话，短，紧贴原文。"
+                "不要写教案，不要写考点，不要写套话赏析。"
+                "典故拿不准就明说不确定，不要编书名。"
+                "只返回 JSON，不要 Markdown。"
+                '{"summary":"两三句说明这首在说什么","lines":["与原文逐句对应的白话"],'
+                '"words":[{"word":"原文中的词","note":"在这一句里的意思"}]}'
+                f"lines 必须正好 {len(sent)} 条，顺序与原文一致，不要合并，不要漏。"
+                "words 最多 8 个，只挑会绊住现代读者的字词。"
+            )
         user = clip_note + format_poem(row, sent)
         raw, provider_name = call_model(
             [{"role": "system", "content": system}, {"role": "user", "content": user}],
@@ -483,8 +584,8 @@ def interpret(poem_id: int, refresh: bool) -> dict:
                 "provider": provider_name,
             }
         conn.execute(
-            """
-            INSERT INTO ai_notes (poem_id, body, updated_at) VALUES (?, ?, ?)
+            f"""
+            INSERT INTO {table} (poem_id, body, updated_at) VALUES (?, ?, ?)
             ON CONFLICT(poem_id) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at
             """,
             (poem_id, json.dumps(note, ensure_ascii=False), now()),
@@ -495,7 +596,7 @@ def interpret(poem_id: int, refresh: bool) -> dict:
         conn.close()
 
 
-def ask(poem_id: int, question: str) -> str:
+def ask(poem_id: int, question: str, lang: str = "zh") -> tuple[str, str]:
     question = question.strip()
     if not question:
         raise AppError("先写问题")
@@ -505,28 +606,36 @@ def ask(poem_id: int, question: str) -> str:
     try:
         row, lines = poem_plain_lines(conn, poem_id)
         sent, clipped = select_lines_for_model(lines)
-        note_row = conn.execute("SELECT body FROM ai_notes WHERE poem_id = ?", (poem_id,)).fetchone()
+        note_row = conn.execute(f"SELECT body FROM {NOTE_TABLES[lang]} WHERE poem_id = ?", (poem_id,)).fetchone()
         context = format_poem(row, sent)
         if clipped:
-            context += "\n\n（后面还有，这里只附了开头。）"
+            context += "\n\n(The poem continues; only the beginning is included.)" if lang == "en" else "\n\n（后面还有，这里只附了开头。）"
         if note_row:
             note = json.loads(note_row["body"])
             if note.get("summary"):
-                context += "\n\n已有的白话提要：" + note["summary"]
+                context += ("\n\nExisting summary: " if lang == "en" else "\n\n已有的白话提要：") + note["summary"]
         history = [
             {"role": item["role"], "content": item["content"]}
             for item in conn.execute(
-                "SELECT role, content FROM ai_messages WHERE poem_id = ? ORDER BY id DESC LIMIT 8",
-                (poem_id,),
+                "SELECT role, content FROM ai_messages WHERE poem_id = ? AND lang = ? ORDER BY id DESC LIMIT 8",
+                (poem_id, lang),
             )
         ]
         history.reverse()
         while history and history[0]["role"] != "user":
             history.pop(0)
-        system = (
-            "你在帮一个人读下面这首诗词。用简体白话直接回答，短一点。"
-            "不确定就说不确定，不要编典故出处，不要写成赏析作文或教案。"
-        )
+        if lang == "en":
+            system = (
+                "You are helping an English-speaking learner of Chinese read the poem below. "
+                "Answer directly in plain English text, without Markdown, and keep it short. "
+                "When you quote Chinese words, add pinyin in parentheses. "
+                "If unsure, say so; never invent sources for allusions. Do not write an appreciation essay or a lesson plan."
+            )
+        else:
+            system = (
+                "你在帮一个人读下面这首诗词。用简体白话直接回答，短一点。"
+                "不确定就说不确定，不要编典故出处，不要写成赏析作文或教案。"
+            )
         messages = [
             {"role": "system", "content": system + "\n\n" + context},
             *history,
@@ -535,12 +644,12 @@ def ask(poem_id: int, question: str) -> str:
         answer, provider_name = call_model(messages, temperature=0.3)
         stamp = now()
         conn.execute(
-            "INSERT INTO ai_messages (poem_id, role, content, created_at) VALUES (?, 'user', ?, ?)",
-            (poem_id, question, stamp),
+            "INSERT INTO ai_messages (poem_id, role, content, created_at, lang) VALUES (?, 'user', ?, ?, ?)",
+            (poem_id, question, stamp, lang),
         )
         conn.execute(
-            "INSERT INTO ai_messages (poem_id, role, content, created_at) VALUES (?, 'assistant', ?, ?)",
-            (poem_id, answer, stamp),
+            "INSERT INTO ai_messages (poem_id, role, content, created_at, lang) VALUES (?, 'assistant', ?, ?, ?)",
+            (poem_id, answer, stamp, lang),
         )
         conn.commit()
         return answer, provider_name
@@ -573,7 +682,7 @@ def normalize_gloss(obj: dict, char: str, line: str) -> dict:
     return {"char": char, "line": line, "in_line": in_line, "senses": senses, "words": words}
 
 
-def gloss(poem_id: int, line_no: int, offset: int) -> dict:
+def gloss(poem_id: int, line_no: int, offset: int, lang: str = "zh") -> dict:
     conn = connect()
     try:
         row, lines = poem_plain_lines(conn, poem_id)
@@ -583,7 +692,8 @@ def gloss(poem_id: int, line_no: int, offset: int) -> dict:
         char = line[offset]
         if not is_hanzi(char):
             raise AppError("标点不用解释")
-        cache_key = hashlib.sha1(f"v2\n{char}\n{line}".encode("utf-8")).hexdigest()
+        version = "v2-en" if lang == "en" else "v2"
+        cache_key = hashlib.sha1(f"{version}\n{char}\n{line}".encode("utf-8")).hexdigest()
         cached = conn.execute(
             "SELECT body, provider FROM glosses WHERE cache_key = ?",
             (cache_key,),
@@ -593,17 +703,31 @@ def gloss(poem_id: int, line_no: int, offset: int) -> dict:
             body["provider"] = cached["provider"]
             body["char"] = char
             return body
-        system = (
-            "你是一本简明文言词典。只解释用户点到的那一个字。"
-            "先说它在这一句里的意思，再列文言里其他常见义项。"
-            "用简体白话，短。不要写拼音，不要编书名。"
-            "只返回 JSON："
-            '{"in_line":"在这一句里的意思","senses":["其他文言义"],'
-            '"words":[{"word":"相关的词","note":"意思"}]}'
-            "senses 只写文言文里的义项，每条先给一个文言说法，再跟一句短白话。"
-            "不要写现代口语里才有的意思。"
-            "words 只收古汉语里常见的词，最多 3 个。不确定就少写。"
-        )
+        if lang == "en":
+            system = (
+                "You are a concise classical Chinese dictionary for English-speaking learners. "
+                "Explain only the single character the user picked. "
+                "First give its meaning in this line, then other common senses in classical Chinese. "
+                "Write in English, briefly. Do not include pinyin. Never invent sources. "
+                "Return JSON only: "
+                '{"in_line":"its meaning in this line","senses":["other classical senses"],'
+                '"words":[{"word":"a related word in Chinese characters","note":"its meaning in English"}]} '
+                "\"senses\": classical senses only; each starts with a short classical Chinese phrase using the character, "
+                "followed by a brief English explanation. Skip meanings found only in modern colloquial Chinese. "
+                "\"words\": at most 3 words common in classical Chinese. Write fewer if unsure."
+            )
+        else:
+            system = (
+                "你是一本简明文言词典。只解释用户点到的那一个字。"
+                "先说它在这一句里的意思，再列文言里其他常见义项。"
+                "用简体白话，短。不要写拼音，不要编书名。"
+                "只返回 JSON："
+                '{"in_line":"在这一句里的意思","senses":["其他文言义"],'
+                '"words":[{"word":"相关的词","note":"意思"}]}'
+                "senses 只写文言文里的义项，每条先给一个文言说法，再跟一句短白话。"
+                "不要写现代口语里才有的意思。"
+                "words 只收古汉语里常见的词，最多 3 个。不确定就少写。"
+            )
         user = (
             f"题目：{row['title']}\n作者：{row['author'] or '不详'}\n"
             f"这一句：{line}\n要解释的字：{char}\n"
@@ -629,6 +753,125 @@ def gloss(poem_id: int, line_no: int, offset: int) -> dict:
         conn.commit()
         body["provider"] = provider_name
         return body
+    finally:
+        conn.close()
+
+
+def reading_candidates(title: str, lines: list[str]) -> list[dict]:
+    candidates = []
+    for line_no, text in [(TITLE_LINE, title), *enumerate(lines)]:
+        for token in line_tokens(text, {}):
+            if not token["han"] or not token["p"]:
+                continue
+            options = readings_for(token["t"])
+            if len(options) < 2:
+                continue
+            offset = token["i"]
+            candidates.append(
+                {
+                    "id": len(candidates) + 1,
+                    "line": line_no,
+                    "offset": offset,
+                    "char": token["t"],
+                    "current": token["p"],
+                    "options": options,
+                    "context": text[:offset] + "【" + token["t"] + "】" + text[offset + 1 :],
+                }
+            )
+            if len(candidates) >= 160:
+                return candidates
+    return candidates
+
+
+def check_readings(poem_id: int) -> None:
+    conn = connect()
+    try:
+        if conn.execute("SELECT 1 FROM ai_readings WHERE poem_id = ?", (poem_id,)).fetchone():
+            return
+        row, lines = poem_plain_lines(conn, poem_id)
+        sent, _ = select_lines_for_model(lines)
+        candidates = reading_candidates(row["title"] or "", sent)
+        items = []
+        provider_name = ""
+        if candidates:
+            system = (
+                "你在给一首古诗词校对拼音。下面列出诗里的多音字，每个有编号、所在的句子（用【】标出这个字）、"
+                "程序现在给的读音和可选读音。"
+                "读音一律以现行规范为准：《现代汉语词典》、《普通话异读词审音表》和现行语文课本的注音。"
+                "审音表已统读的字按统读音，不要为押韵改用古音或叶音（例如“斜”统读 xié，不读 xiá）；"
+                "有流行的古读时，只在说明里提一句。"
+                "注意这个字在这一句里的词义、人名地名、通假字。拿不准就不要改。"
+                "挑出两类字：一是现在的读音不对的，给出正确读音；"
+                "二是读音已经对、但常被读错的，reading 照抄现在的读音。"
+                "第二类只挑学生和普通读者真会读错的，最多 5 个；"
+                "像“相见”的相、“何处”的处这种一般人不会读错的，不要列。"
+                "reading 必须从这个字的可选读音里原样选一个。"
+                "只返回 JSON，不要 Markdown："
+                '{"items":[{"id":编号,"reading":"正确读音","zh":"一句简体中文，说明这里为什么这样读",'
+                '"en":"the same reason in one short English sentence"}]}'
+                '没有要提醒的就返回 {"items":[]}。'
+            )
+            listing = "\n".join(
+                f"{item['id']}. {item['char']} | {'题目' if item['line'] == TITLE_LINE else '第' + str(item['line'] + 1) + '句'}："
+                f"{item['context']} | 现在：{item['current']} | 可选：{'、'.join(item['options'])}"
+                for item in candidates
+            )
+            user = f"题目：{row['title']}\n作者：{row['author'] or '不详'}\n朝代：{row['dynasty']}\n\n{listing}"
+            parsed = None
+            for _ in range(2):
+                raw, provider_name = call_model(
+                    [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                    temperature=0.1,
+                    max_tokens=6000,
+                )
+                try:
+                    parsed = parse_model_json(raw)
+                    break
+                except (ValueError, json.JSONDecodeError):
+                    print(f"读音核对回答不是 JSON：{raw[:300]!r}", file=sys.stderr, flush=True)
+            if parsed is None:
+                raise AppError("核对读音时没读懂回答")
+            by_id = {item["id"]: item for item in candidates}
+            seen = set()
+            kept = 0
+            for entry in parsed.get("items") or []:
+                if not isinstance(entry, dict):
+                    continue
+                try:
+                    candidate = by_id.get(int(entry.get("id")))
+                except (TypeError, ValueError):
+                    continue
+                reading = str(entry.get("reading") or "").strip().lower()
+                if candidate is None or candidate["id"] in seen or reading not in candidate["options"]:
+                    continue
+                changed = reading != candidate["current"]
+                if not changed:
+                    if kept >= 5:
+                        continue
+                    kept += 1
+                seen.add(candidate["id"])
+                items.append(
+                    {
+                        "line": candidate["line"],
+                        "offset": candidate["offset"],
+                        "char": candidate["char"],
+                        "reading": reading,
+                        "changed": changed,
+                        "zh": str(entry.get("zh") or "").strip(),
+                        "en": str(entry.get("en") or "").strip(),
+                    }
+                )
+                if len(items) >= 12:
+                    break
+        conn.execute(
+            """
+            INSERT INTO ai_readings (poem_id, body, provider, updated_at) VALUES (?, ?, ?, ?)
+            ON CONFLICT(poem_id) DO UPDATE SET
+              body = excluded.body, provider = excluded.provider, updated_at = excluded.updated_at
+            """,
+            (poem_id, json.dumps({"items": items}, ensure_ascii=False), provider_name, now()),
+        )
+        conn.commit()
     finally:
         conn.close()
 
@@ -835,6 +1078,13 @@ class Handler(BaseHTTPRequestHandler):
         if str(args[1] if len(args) > 1 else "").startswith("5"):
             super().log_message(fmt, *args)
 
+    @property
+    def lang(self) -> str:
+        return pick_lang(self.headers.get("X-Lang"))
+
+    def send_error_json(self, message: str, status: int) -> None:
+        self.send_json({"error": localize(message, self.lang)}, status)
+
     def send_json(self, payload: dict, status: int = 200) -> None:
         raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
@@ -903,15 +1153,15 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self.send_error(404)
         except AppError as error:
-            self.send_json({"error": str(error)}, 400)
+            self.send_error_json(str(error), 400)
         except Exception:
             traceback.print_exc()
-            self.send_json({"error": "出错了"}, 500)
+            self.send_error_json("出错了", 500)
 
     def with_conn_poem(self, poem_id: int) -> dict:
         conn = connect()
         try:
-            return load_poem(conn, poem_id)
+            return load_poem(conn, poem_id, self.lang)
         finally:
             conn.close()
 
@@ -927,16 +1177,21 @@ class Handler(BaseHTTPRequestHandler):
                 self.save_favorite(data)
                 return
             if path == "/api/gloss":
-                body = gloss(int(data.get("id") or 0), int(data.get("line") or 0), int(data.get("offset") or 0))
+                body = gloss(int(data.get("id") or 0), int(data.get("line") or 0), int(data.get("offset") or 0), self.lang)
                 self.send_json(body)
                 return
             if path == "/api/interpret":
-                note = interpret(int(data.get("id") or 0), bool(data.get("refresh")))
+                note = interpret(int(data.get("id") or 0), bool(data.get("refresh")), self.lang)
                 self.send_json({"note": note})
                 return
             if path == "/api/ask":
-                answer, provider_name = ask(int(data.get("id") or 0), str(data.get("question") or ""))
+                answer, provider_name = ask(int(data.get("id") or 0), str(data.get("question") or ""), self.lang)
                 self.send_json({"answer": answer, "provider": provider_name})
+                return
+            if path == "/api/check-readings":
+                poem_id = int(data.get("id") or 0)
+                check_readings(poem_id)
+                self.send_json(self.with_conn_poem(poem_id))
                 return
             if path == "/api/speak":
                 body = synthesize_speech(int(data.get("id") or 0), str(data.get("voice") or ""))
@@ -944,10 +1199,10 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self.send_error(404)
         except AppError as error:
-            self.send_json({"error": str(error)}, 400)
+            self.send_error_json(str(error), 400)
         except Exception:
             traceback.print_exc()
-            self.send_json({"error": "出错了"}, 500)
+            self.send_error_json("出错了", 500)
 
     def save_reading(self, data: dict) -> None:
         poem_id = int(data.get("id") or 0)
@@ -976,7 +1231,7 @@ class Handler(BaseHTTPRequestHandler):
                     (poem_id, line_no, offset),
                 )
             conn.commit()
-            self.send_json(load_poem(conn, poem_id))
+            self.send_json(load_poem(conn, poem_id, self.lang))
         finally:
             conn.close()
 
@@ -1020,6 +1275,10 @@ def main() -> None:
         raise SystemExit("还没有诗库。先运行：.venv/bin/python import_poetry.py")
     conn = connect()
     conn.executescript(EXTRA_SCHEMA)
+    columns = {item["name"] for item in conn.execute("PRAGMA table_info(ai_messages)")}
+    if "lang" not in columns:
+        conn.execute("ALTER TABLE ai_messages ADD COLUMN lang TEXT NOT NULL DEFAULT 'zh'")
+        conn.commit()
     conn.close()
     server = None
     port = 8765

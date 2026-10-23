@@ -19,6 +19,8 @@ const openCatalog = document.querySelector("#openCatalog")
 const glyph = document.querySelector("#glyph")
 const glyphChar = document.querySelector("#glyphChar")
 const glyphReading = document.querySelector("#glyphReading")
+const glyphNote = document.querySelector("#glyphNote")
+const readHint = document.querySelector("#readHint")
 const glyphLine = document.querySelector("#glyphLine")
 const glyphMsg = document.querySelector("#glyphMsg")
 const glyphInline = document.querySelector("#glyphInline")
@@ -44,21 +46,163 @@ const readingForm = document.querySelector("#readingForm")
 const readingInput = document.querySelector("#readingInput")
 const resetReading = document.querySelector("#resetReading")
 
-const SHELVES = [
-  ["tang300", "唐诗三百首"],
-  ["ci300", "宋词三百首"],
-  ["shijing", "诗经"],
-  ["chuci", "楚辞"],
-  ["fav", "收藏"],
-]
-const GENRES = [
-  ["", "全部"],
-  ["诗", "诗"],
-  ["词", "词"],
-  ["诗经", "诗经"],
-  ["楚辞", "楚辞"],
-  ["曲", "曲"],
-]
+const LANG_KEY = "guwen-lang"
+const I18N = {
+  zh: {
+    catalog: "目录",
+    searchPlaceholder: "搜题目、作者，或半句诗",
+    pinyin: "拼音",
+    vernacular: "白话",
+    settings: "设置",
+    langToggle: "English",
+    emptyHint: "打开目录选一首，或在上面搜半句。",
+    collapse: "收起",
+    askPlaceholder: "问这句，或问一个词",
+    askButton: "问",
+    voiceReading: "男声 · 朗读",
+    voiceClear: "男声 · 清楚",
+    voiceYoung: "男声 · 年轻",
+    rate: "语速",
+    openStudy: "白话",
+    foot: "原文来自开源诗库，已转简体。白话由你配置的 AI 现写。",
+    close: "关闭",
+    readingPlaceholder: "改读音",
+    saveReading: "记住",
+    resetReading: "恢复",
+    inLine: "这一句里",
+    senses: "文言里还常作",
+    providersTitle: "免费接口",
+    providersHint: "按这个顺序自动换。一家额度用完或连不上，就用下一家。密钥不在这个页面上。",
+    shelf_tang300: "唐诗三百首",
+    shelf_ci300: "宋词三百首",
+    shelf_shijing: "诗经",
+    shelf_chuci: "楚辞",
+    shelf_fav: "收藏",
+    genre_all: "全部",
+    genre_诗: "诗",
+    genre_词: "词",
+    genre_诗经: "诗经",
+    genre_楚辞: "楚辞",
+    genre_曲: "曲",
+    count: (n) => n + " 首",
+    noResults: "没有这首。可以少几个字，或在作者和诗题之间空一格。",
+    limited: (n) => n + " 首，先显示这些。句子再写完整一点会更准。",
+    emptyList: "这里还是空的。",
+    fav: "收藏",
+    faved: "已收藏",
+    used: (name) => "这一次用的是 " + name,
+    interpret: "用白话讲一遍",
+    interpretAgain: "再讲一遍",
+    clipped: "只讲了开头。",
+    userPrefix: "问  ",
+    noReadings: "没有现成读音，可以自己填。",
+    noPinyin: "无注音",
+    lookingUp: "正在查这个字…",
+    glossFrom: (name) => "查自 " + name,
+    speak: "朗读",
+    stop: "停止",
+    preparing: "正在准备朗读…",
+    playFailed: "没有播出来",
+    speakFailed: "没有读出来",
+    rateSlow: "慢",
+    rateSlower: "稍慢",
+    rateNormal: "正常",
+    rateFaster: "稍快",
+    interpreting: "正在读这首…",
+    thinking: "正在想…",
+    noProviders: "没有读到可用的免费接口。",
+    requestFailed: "请求失败",
+    customProvider: "自备接口",
+    readNotes: "注意读音",
+    checkingReadings: "正在请 AI 核对多音字…",
+    readingNote: (note) => "读音：" + note,
+  },
+  en: {
+    catalog: "Contents",
+    searchPlaceholder: "Search title, author, or part of a line (in Chinese)",
+    pinyin: "Pinyin",
+    vernacular: "Translation",
+    settings: "Settings",
+    langToggle: "中文",
+    emptyHint: "Open Contents to pick a poem, or search for part of a line above.",
+    collapse: "Hide",
+    askPlaceholder: "Ask about a line or a word",
+    askButton: "Ask",
+    voiceReading: "Male · Recital",
+    voiceClear: "Male · Clear",
+    voiceYoung: "Male · Young",
+    rate: "Speed",
+    openStudy: "Explain",
+    foot: "Texts come from an open-source poetry corpus, converted to simplified Chinese. Explanations are written on the fly by the AI you configure.",
+    close: "Close",
+    readingPlaceholder: "Fix pinyin",
+    saveReading: "Save",
+    resetReading: "Reset",
+    inLine: "In this line",
+    senses: "Other classical senses",
+    providersTitle: "AI providers",
+    providersHint: "Tried in this order. If one runs out of quota or can't be reached, the next one is used. API keys are never shown here.",
+    shelf_tang300: "300 Tang Poems",
+    shelf_ci300: "300 Song Ci",
+    shelf_shijing: "Book of Songs",
+    shelf_chuci: "Songs of Chu",
+    shelf_fav: "Favorites",
+    genre_all: "All",
+    genre_诗: "Shi",
+    genre_词: "Ci",
+    genre_诗经: "Book of Songs",
+    genre_楚辞: "Songs of Chu",
+    genre_曲: "Qu",
+    count: (n) => n + (n === 1 ? " poem" : " poems"),
+    noResults: "No match. Try fewer characters, or put a space between author and title.",
+    limited: (n) => "Showing the first " + n + ". A longer phrase gives better matches.",
+    emptyList: "Nothing here yet.",
+    fav: "Favorite",
+    faved: "Favorited",
+    used: (name) => "Answered by " + name,
+    interpret: "Explain in English",
+    interpretAgain: "Explain again",
+    clipped: "Only the beginning is explained. ",
+    userPrefix: "Q  ",
+    noReadings: "No known readings; type one yourself.",
+    noPinyin: "No pinyin",
+    lookingUp: "Looking up this character…",
+    glossFrom: (name) => "From " + name,
+    speak: "Read aloud",
+    stop: "Stop",
+    preparing: "Preparing audio…",
+    playFailed: "Playback failed",
+    speakFailed: "Could not read aloud",
+    rateSlow: "Slow",
+    rateSlower: "Slower",
+    rateNormal: "Normal",
+    rateFaster: "Faster",
+    interpreting: "Reading the poem…",
+    thinking: "Thinking…",
+    noProviders: "No AI provider is configured.",
+    requestFailed: "Request failed",
+    customProvider: "Custom API",
+    readNotes: "Watch the pronunciation",
+    checkingReadings: "Asking the AI to check characters with several readings…",
+    readingNote: (note) => "Pronunciation: " + note,
+  },
+}
+
+let lang = initialLang()
+
+function initialLang() {
+  const saved = localStorage.getItem(LANG_KEY)
+  if (saved === "zh" || saved === "en") return saved
+  return /^zh/i.test(navigator.language || "") ? "zh" : "en"
+}
+
+function t(key, ...args) {
+  const value = I18N[lang][key] ?? I18N.zh[key] ?? key
+  return typeof value === "function" ? value(...args) : value
+}
+
+const SHELVES = ["tang300", "ci300", "shijing", "chuci", "fav"]
+const GENRES = ["", "诗", "词", "诗经", "楚辞", "曲"]
 
 let shelf = "tang300"
 let genre = ""
@@ -80,21 +224,22 @@ function post(path, body) {
   })
 }
 
-async function api(path, options) {
-  const response = await fetch(path, options)
+async function api(path, options = {}) {
+  const headers = { ...(options.headers || {}), "X-Lang": lang }
+  const response = await fetch(path, { ...options, headers })
   const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(data.error || "请求失败")
+  if (!response.ok) throw new Error(data.error || t("requestFailed"))
   return data
 }
 
 function paintShelves() {
   shelves.replaceChildren()
-  for (const [id, label] of SHELVES) {
+  for (const id of SHELVES) {
     const button = document.createElement("button")
     button.type = "button"
     button.className = "chip" + (browsing && shelf === id ? " on" : "")
     button.dataset.shelf = id
-    button.textContent = label
+    button.textContent = t("shelf_" + id)
     button.addEventListener("click", () => selectShelf(id))
     shelves.append(button)
   }
@@ -102,11 +247,11 @@ function paintShelves() {
 
 function paintGenres() {
   genres.replaceChildren()
-  for (const [id, label] of GENRES) {
+  for (const id of GENRES) {
     const button = document.createElement("button")
     button.type = "button"
     button.className = "chip" + (genre === id ? " on" : "")
-    button.textContent = label
+    button.textContent = t("genre_" + (id || "all"))
     button.addEventListener("click", () => {
       genre = id
       paintGenres()
@@ -133,7 +278,7 @@ async function loadShelf(name) {
   shelf = data.shelf
   browsing = true
   paintShelves()
-  listMeta.textContent = data.label + " · " + data.items.length + " 首"
+  listMeta.textContent = t("shelf_" + data.shelf) + " · " + t("count", data.items.length)
   renderList(data.items)
 }
 
@@ -144,11 +289,11 @@ async function search(query) {
   paintGenres()
   const data = await api("/api/search?q=" + encodeURIComponent(query) + "&genre=" + encodeURIComponent(genre))
   if (!data.items.length) {
-    listMeta.textContent = "没有这首。可以少几个字，或在作者和诗题之间空一格。"
+    listMeta.textContent = t("noResults")
   } else if (data.limited) {
-    listMeta.textContent = data.items.length + " 首，先显示这些。句子再写完整一点会更准。"
+    listMeta.textContent = t("limited", data.items.length)
   } else {
-    listMeta.textContent = data.items.length + " 首"
+    listMeta.textContent = t("count", data.items.length)
   }
   renderList(data.items)
 }
@@ -158,7 +303,7 @@ function renderList(items) {
   if (!items.length) {
     const note = document.createElement("p")
     note.className = "list-meta"
-    note.textContent = "这里还是空的。"
+    note.textContent = t("emptyList")
     list.append(note)
     return
   }
@@ -217,12 +362,59 @@ function renderPoem(poem) {
   empty.hidden = true
   poemEl.hidden = false
   document.querySelector("#poemTools").hidden = false
-  poemTitle.textContent = poem.title
   poemMeta.textContent = metaLine(poem)
   variant.hidden = !poem.variant
   variant.textContent = poem.variant || ""
-  fav.textContent = poem.favorite ? "已收藏" : "收藏"
+  fav.textContent = poem.favorite ? t("faved") : t("fav")
   fav.classList.toggle("on", poem.favorite)
+  renderText(poem)
+  renderSide(poem)
+  applyNote(poem.note)
+}
+
+function rubyFor(token) {
+  const ruby = document.createElement("ruby")
+  ruby.classList.toggle("ai", Boolean(token.ai))
+  ruby.append(token.t)
+  const rt = document.createElement("rt")
+  rt.textContent = token.p || ""
+  ruby.append(rt)
+  return ruby
+}
+
+function paintReadHint(poem) {
+  readHint.replaceChildren()
+  const notes = poem.reading_notes || []
+  readHint.hidden = !notes.length
+  if (!notes.length) return
+  const label = document.createElement("span")
+  label.textContent = t("readNotes")
+  readHint.append(label)
+  for (const item of notes) {
+    const chip = document.createElement("button")
+    chip.type = "button"
+    chip.className = "read-chip" + (item.changed ? " changed" : "")
+    chip.textContent = item.char + " " + item.reading
+    chip.title = item.note || ""
+    if (item.line >= 0) chip.addEventListener("click", () => showGlyph(item.line, item.offset))
+    else chip.disabled = true
+    readHint.append(chip)
+  }
+}
+
+function renderText(poem) {
+  poemTitle.replaceChildren()
+  for (const token of poem.title_tokens || [{ t: poem.title, p: "", han: false }]) {
+    if (!token.han) {
+      const plain = document.createElement("span")
+      plain.className = "title-plain"
+      plain.textContent = token.t
+      poemTitle.append(plain)
+      continue
+    }
+    poemTitle.append(rubyFor(token))
+  }
+  paintReadHint(poem)
   verse.replaceChildren()
   poem.lines.forEach((line, lineNo) => {
     displayRows(line.tokens).forEach((tokens, part) => {
@@ -240,13 +432,9 @@ function renderPoem(poem) {
           orig.append(punct)
           continue
         }
-        const ruby = document.createElement("ruby")
+        const ruby = rubyFor(token)
         ruby.dataset.offset = String(token.i)
         ruby.dataset.fixed = token.fixed ? "1" : "0"
-        ruby.append(token.t)
-        const rt = document.createElement("rt")
-        rt.textContent = token.p || ""
-        ruby.append(rt)
         orig.append(ruby)
       }
       const vern = document.createElement("p")
@@ -256,18 +444,47 @@ function renderPoem(poem) {
       verse.append(row)
     })
   })
-  renderSide(poem)
-  applyNote(poem.note)
+}
+
+const readingChecks = new Set()
+
+async function checkReadings(poem) {
+  if (poem.readings_checked || readingChecks.has(poem.id)) return
+  readingChecks.add(poem.id)
+  readHint.hidden = false
+  readHint.textContent = t("checkingReadings")
+  const asked = lang
+  try {
+    const fresh = await post("/api/check-readings", { id: poem.id })
+    if (!current || current.id !== fresh.id) return
+    if (lang !== asked) {
+      openPoem(fresh.id)
+      return
+    }
+    current.title_tokens = fresh.title_tokens
+    current.lines = fresh.lines
+    current.reading_notes = fresh.reading_notes
+    current.readings_checked = true
+    renderText(current)
+    applyNote(current.note)
+    if (selected) {
+      markGlyph(selected.line, selected.offset)
+      paintGlyphReading(selected.line, selected.offset)
+      placeGlyph()
+    }
+  } catch {
+    if (current && current.id === poem.id) paintReadHint(current)
+  }
 }
 
 function renderSide(poem) {
   sideMsg.textContent = ""
-  used.textContent = poem.note && poem.note.provider ? "这一次用的是 " + poem.note.provider : ""
+  used.textContent = poem.note && poem.note.provider ? t("used", poem.note.provider) : ""
   chat.replaceChildren()
   for (const message of poem.messages || []) {
     appendMessage(message.role, message.content)
   }
-  interpret.textContent = poem.note ? "再讲一遍" : "用白话讲一遍"
+  interpret.textContent = poem.note ? t("interpretAgain") : t("interpret")
   interpret.disabled = false
 }
 
@@ -307,7 +524,7 @@ function applyNote(note) {
     vernToggle.disabled = false
   }
   if (note.summary) {
-    const prefix = note.clipped ? "只讲了开头。" : ""
+    const prefix = note.clipped ? t("clipped") : ""
     summary.textContent = prefix + note.summary
     summary.hidden = false
   }
@@ -323,7 +540,7 @@ function applyNote(note) {
 function appendMessage(role, content) {
   const block = document.createElement("div")
   block.className = "bubble " + role
-  block.textContent = role === "user" ? "问  " + content : content
+  block.textContent = role === "user" ? t("userPrefix") + content : content
   chat.append(block)
 }
 
@@ -347,6 +564,7 @@ async function openPoem(id) {
     const next = "#p=" + poem.id
     if (location.hash !== next) history.replaceState(null, "", next)
     markActive()
+    checkReadings(poem)
   } catch (error) {
     listMeta.textContent = error.message
   }
@@ -424,13 +642,23 @@ async function loadReadings(char, currentReading, ticket) {
     }
     if (!data.readings.length) {
       const note = document.createElement("span")
-      note.textContent = "没有现成读音，可以自己填。"
+      note.textContent = t("noReadings")
       alts.append(note)
     }
   } catch (error) {
     if (ticket !== glossTicket) return
     alts.textContent = error.message
   }
+}
+
+function paintGlyphReading(lineNo, offset) {
+  const line = current.lines[lineNo]
+  const token = line && line.tokens.find((item) => item.i === offset)
+  if (!token) return
+  glyphReading.textContent = token.p || t("noPinyin")
+  const note = (current.reading_notes || []).find((item) => item.line === lineNo && item.offset === offset)
+  glyphNote.textContent = note && note.note ? t("readingNote", note.note) : ""
+  glyphNote.hidden = !glyphNote.textContent
 }
 
 async function showGlyph(lineNo, offset) {
@@ -441,9 +669,9 @@ async function showGlyph(lineNo, offset) {
   selected = { line: lineNo, offset }
   glyph.hidden = false
   glyphChar.textContent = token.t
-  glyphReading.textContent = token.p || "无注音"
+  paintGlyphReading(lineNo, offset)
   glyphLine.textContent = line.tokens.map((item) => item.t).join("")
-  glyphMsg.textContent = "正在查这个字…"
+  glyphMsg.textContent = t("lookingUp")
   glyphInline.textContent = ""
   glyphInline.hidden = true
   inlineLabel.hidden = true
@@ -476,7 +704,7 @@ async function showGlyph(lineNo, offset) {
       note.textContent = item.note || ""
       glyphWords.append(term, note)
     }
-    glyphUsed.textContent = data.provider ? "查自 " + data.provider : ""
+    glyphUsed.textContent = data.provider ? t("glossFrom", data.provider) : ""
   } catch (error) {
     if (ticket !== glossTicket) return
     glyphMsg.textContent = error.message
@@ -599,7 +827,7 @@ function stopSpeak() {
   }
   if (window.speechSynthesis) speechSynthesis.cancel()
   speak.classList.remove("on")
-  speak.textContent = "朗读"
+  speak.textContent = t("speak")
   for (const row of verse.querySelectorAll(".row.on-read")) row.classList.remove("on-read")
 }
 
@@ -628,8 +856,8 @@ function speakPoem() {
   audio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
   audio.play().catch(() => {})
   speak.classList.add("on")
-  speak.textContent = "停止"
-  speakMsg.textContent = "正在准备朗读…"
+  speak.textContent = t("stop")
+  speakMsg.textContent = t("preparing")
   const voice = document.querySelector("#voicePick").value
   post("/api/speak", { id: current.id, voice })
     .then((data) => {
@@ -659,7 +887,7 @@ function speakPoem() {
       audio.onerror = () => {
         if (token !== speakToken) return
         stopSpeak()
-        speakMsg.textContent = "没有播出来"
+        speakMsg.textContent = t("playFailed")
       }
       speakMsg.textContent = ""
       return audio.play()
@@ -667,7 +895,7 @@ function speakPoem() {
     .catch((error) => {
       if (token !== speakToken) return
       stopSpeak()
-      speakMsg.textContent = error.message || "没有读出来"
+      speakMsg.textContent = error.message || t("speakFailed")
     })
 }
 
@@ -698,10 +926,10 @@ function speechRate() {
 }
 
 function rateWord(rate) {
-  if (rate <= 0.75) return "慢"
-  if (rate <= 0.9) return "稍慢"
-  if (rate < 1.1) return "正常"
-  return "稍快"
+  if (rate <= 0.75) return t("rateSlow")
+  if (rate <= 0.9) return t("rateSlower")
+  if (rate < 1.1) return t("rateNormal")
+  return t("rateFaster")
 }
 
 function paintRate() {
@@ -731,7 +959,7 @@ document.querySelector("#closeGlyph").addEventListener("click", () => clearGlyph
 
 document.addEventListener("click", (event) => {
   if (glyph.hidden) return
-  if (glyph.contains(event.target) || event.target.closest("ruby")) return
+  if (glyph.contains(event.target) || event.target.closest("ruby, .read-chip")) return
   clearGlyph()
 })
 
@@ -760,7 +988,7 @@ fav.addEventListener("click", async () => {
   try {
     const data = await post("/api/favorite", { id: current.id })
     current.favorite = data.favorite
-    fav.textContent = data.favorite ? "已收藏" : "收藏"
+    fav.textContent = data.favorite ? t("faved") : t("fav")
     fav.classList.toggle("on", data.favorite)
     if (shelf === "fav" && browsing) loadShelf("fav")
   } catch (error) {
@@ -771,13 +999,13 @@ fav.addEventListener("click", async () => {
 interpret.addEventListener("click", async () => {
   if (!current || interpret.disabled) return
   interpret.disabled = true
-  sideMsg.textContent = "正在读这首…"
+  sideMsg.textContent = t("interpreting")
   try {
     const data = await post("/api/interpret", { id: current.id, refresh: Boolean(current.note) })
     current.note = data.note
-    interpret.textContent = "再讲一遍"
+    interpret.textContent = t("interpretAgain")
     sideMsg.textContent = ""
-    used.textContent = data.note && data.note.provider ? "这一次用的是 " + data.note.provider : ""
+    used.textContent = data.note && data.note.provider ? t("used", data.note.provider) : ""
     applyNote(current.note)
   } catch (error) {
     sideMsg.textContent = error.message
@@ -791,14 +1019,14 @@ askForm.addEventListener("submit", async (event) => {
   if (!current) return
   const question = ask.value.trim()
   if (!question) return
-  sideMsg.textContent = "正在想…"
+  sideMsg.textContent = t("thinking")
   try {
     const data = await post("/api/ask", { id: current.id, question })
     appendMessage("user", question)
     appendMessage("assistant", data.answer)
     ask.value = ""
     sideMsg.textContent = ""
-    if (data.provider) used.textContent = "这一次用的是 " + data.provider
+    if (data.provider) used.textContent = t("used", data.provider)
   } catch (error) {
     sideMsg.textContent = error.message
   }
@@ -854,10 +1082,11 @@ document.querySelector("#openSettings").addEventListener("click", async () => {
     const data = await api("/api/settings")
     for (const item of data.providers || []) {
       const row = document.createElement("li")
-      row.textContent = item.name + " · " + item.model
+      const name = item.name === I18N.zh.customProvider ? t("customProvider") : item.name
+      row.textContent = name + " · " + item.model
       list.append(row)
     }
-    if (!data.providers || !data.providers.length) settingsMsg.textContent = "没有读到可用的免费接口。"
+    if (!data.providers || !data.providers.length) settingsMsg.textContent = t("noProviders")
   } catch (error) {
     settingsMsg.textContent = error.message
   }
@@ -866,8 +1095,31 @@ document.querySelector("#openSettings").addEventListener("click", async () => {
 
 document.querySelector("#closeSettings").addEventListener("click", () => settings.close())
 
-paintShelves()
-paintGenres()
+function paintStatic() {
+  document.documentElement.lang = lang === "en" ? "en" : "zh-Hans"
+  for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n)
+  for (const el of document.querySelectorAll("[data-i18n-placeholder]")) el.placeholder = t(el.dataset.i18nPlaceholder)
+  for (const el of document.querySelectorAll("[data-i18n-aria-label]")) el.setAttribute("aria-label", t(el.dataset.i18nAriaLabel))
+  const toggle = document.querySelector("#langToggle")
+  toggle.textContent = t("langToggle")
+  toggle.lang = lang === "en" ? "zh-Hans" : "en"
+  if (!speak.classList.contains("on")) speak.textContent = t("speak")
+  if (!current) interpret.textContent = t("interpret")
+  paintRate()
+  paintShelves()
+  paintGenres()
+}
+
+document.querySelector("#langToggle").addEventListener("click", () => {
+  lang = lang === "en" ? "zh" : "en"
+  localStorage.setItem(LANG_KEY, lang)
+  clearGlyph()
+  paintStatic()
+  runQuery()
+  if (current) openPoem(current.id)
+})
+
+paintStatic()
 setCatalog(true)
 loadShelf("tang300").then(() => {
   const id = Number((location.hash.match(/p=(\d+)/) || [])[1] || 0)

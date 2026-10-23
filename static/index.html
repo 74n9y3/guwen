@@ -4,24 +4,25 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>古文</title>
-  <link rel="stylesheet" href="/static/app.css?v=15" />
+  <link rel="stylesheet" href="/static/app.css?v=18" />
 </head>
 <body class="show-py show-vern">
   <header>
     <button type="button" id="home" class="brand">古文</button>
-    <button type="button" id="openCatalog">目录</button>
+    <button type="button" id="openCatalog" data-i18n="catalog">目录</button>
     <form id="searchForm" class="search">
-      <input id="q" autocomplete="off" placeholder="搜题目、作者，或半句诗" />
+      <input id="q" autocomplete="off" data-i18n-placeholder="searchPlaceholder" placeholder="搜题目、作者，或半句诗" />
     </form>
     <div class="toggles">
-      <label><input type="checkbox" id="pyToggle" checked /> 拼音</label>
-      <label><input type="checkbox" id="vernToggle" checked disabled /> 白话</label>
-      <button type="button" id="openSettings">设置</button>
+      <label><input type="checkbox" id="pyToggle" checked /> <span data-i18n="pinyin">拼音</span></label>
+      <label><input type="checkbox" id="vernToggle" checked disabled /> <span data-i18n="vernacular">白话</span></label>
+      <button type="button" id="openSettings" data-i18n="settings">设置</button>
+      <button type="button" id="langToggle" lang="en">English</button>
     </div>
   </header>
   <main class="read">
     <div id="empty" class="empty" hidden>
-      <p>打开目录选一首，或在上面搜半句。</p>
+      <p data-i18n="emptyHint">打开目录选一首，或在上面搜半句。</p>
       <div class="examples">
         <button type="button" data-q="床前明月光">床前明月光</button>
         <button type="button" data-q="大江东去">大江东去</button>
@@ -33,11 +34,12 @@
         <h1 id="poemTitle"></h1>
         <p id="poemMeta" class="meta"></p>
         <p id="variant" class="hint" hidden></p>
+        <div id="readHint" class="read-hint" hidden></div>
       </header>
       <div id="verse"></div>
       <section id="study" class="study" hidden>
         <div class="study-bar">
-          <button type="button" id="closeStudy">收起</button>
+          <button type="button" id="closeStudy" data-i18n="collapse">收起</button>
         </div>
         <button type="button" id="interpret">用白话讲一遍</button>
         <p id="sideMsg" class="msg"></p>
@@ -47,8 +49,8 @@
         <dl id="words"></dl>
         <div id="chat"></div>
         <form id="askForm" class="ask">
-          <input id="ask" placeholder="问这句，或问一个词" autocomplete="off" />
-          <button type="submit">问</button>
+          <input id="ask" data-i18n-placeholder="askPlaceholder" placeholder="问这句，或问一个词" autocomplete="off" />
+          <button type="submit" data-i18n="askButton">问</button>
         </form>
       </section>
     </article>
@@ -58,16 +60,16 @@
     <div class="title-actions">
       <button type="button" id="speak">朗读</button>
       <select id="voicePick" class="voice-pick">
-        <option value="zh-CN-YunjianNeural">男声 · 朗读</option>
-        <option value="zh-CN-YunyangNeural">男声 · 清楚</option>
-        <option value="zh-CN-YunxiNeural">男声 · 年轻</option>
+        <option value="zh-CN-YunjianNeural" data-i18n="voiceReading">男声 · 朗读</option>
+        <option value="zh-CN-YunyangNeural" data-i18n="voiceClear">男声 · 清楚</option>
+        <option value="zh-CN-YunxiNeural" data-i18n="voiceYoung">男声 · 年轻</option>
       </select>
       <label class="rate-pick">
         <span id="rateLabel">稍慢</span>
-        <input id="ratePick" type="range" min="70" max="120" step="5" value="85" aria-label="语速" />
+        <input id="ratePick" type="range" min="70" max="120" step="5" value="85" data-i18n-aria-label="rate" aria-label="语速" />
       </label>
       <button type="button" id="fav">收藏</button>
-      <button type="button" id="openStudy">白话</button>
+      <button type="button" id="openStudy" data-i18n="openStudy">白话</button>
     </div>
   </div>
   <div id="catalogBack" class="catalog-back" hidden></div>
@@ -76,10 +78,10 @@
     <div class="genres" id="genres" hidden></div>
     <p class="list-meta" id="listMeta"></p>
     <div class="list-scroll" id="list"></div>
-    <p class="foot">原文来自开源诗库，已转简体。白话由你配置的 AI 现写。</p>
+    <p class="foot" data-i18n="foot">原文来自开源诗库，已转简体。白话由你配置的 AI 现写。</p>
   </div>
   <div id="glyph" class="glyph-pop" hidden>
-    <button type="button" id="closeGlyph" class="pop-close">关闭</button>
+    <button type="button" id="closeGlyph" class="pop-close" data-i18n="close">关闭</button>
     <div class="glyph-head">
       <div id="glyphChar" class="glyph-char"></div>
       <div class="glyph-meta">
@@ -87,29 +89,30 @@
         <p id="glyphLine" class="glyph-line"></p>
       </div>
     </div>
+    <p id="glyphNote" class="glyph-note" hidden></p>
     <div id="alts" class="alts"></div>
     <form id="readingForm">
-      <input id="readingInput" placeholder="改读音" autocomplete="off" spellcheck="false" />
-      <button type="submit">记住</button>
-      <button type="button" id="resetReading">恢复</button>
+      <input id="readingInput" data-i18n-placeholder="readingPlaceholder" placeholder="改读音" autocomplete="off" spellcheck="false" />
+      <button type="submit" data-i18n="saveReading">记住</button>
+      <button type="button" id="resetReading" data-i18n="resetReading">恢复</button>
     </form>
     <p id="glyphMsg" class="msg"></p>
-    <h3 id="inlineLabel" hidden>这一句里</h3>
+    <h3 id="inlineLabel" data-i18n="inLine" hidden>这一句里</h3>
     <p id="glyphInline" class="glyph-inline" hidden></p>
-    <h3 id="sensesLabel" hidden>文言里还常作</h3>
+    <h3 id="sensesLabel" data-i18n="senses" hidden>文言里还常作</h3>
     <ul id="glyphSenses"></ul>
     <dl id="glyphWords"></dl>
     <p id="glyphUsed" class="hint"></p>
   </div>
   <dialog id="settings">
-    <h2>免费接口</h2>
-    <p class="hint">按这个顺序自动换。一家额度用完或连不上，就用下一家。密钥不在这个页面上。</p>
+    <h2 data-i18n="providersTitle">免费接口</h2>
+    <p class="hint" data-i18n="providersHint">按这个顺序自动换。一家额度用完或连不上，就用下一家。密钥不在这个页面上。</p>
     <ol id="providerList"></ol>
     <div class="dialog-actions">
-      <button type="button" id="closeSettings">关闭</button>
+      <button type="button" id="closeSettings" data-i18n="close">关闭</button>
     </div>
     <p id="settingsMsg" class="msg"></p>
   </dialog>
-  <script src="/static/app.js?v=13"></script>
+  <script src="/static/app.js?v=18"></script>
 </body>
 </html>

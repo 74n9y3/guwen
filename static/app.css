@@ -402,6 +402,53 @@ body.show-py rt {
 ruby.on rt { color: #b4634a; }
 
 body:not(.show-py) rt { display: none; }
+
+ruby.ai rt { color: #a0573f; }
+
+.read-hint {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.3rem 0.4rem;
+  margin: 0.6rem auto 0;
+  max-width: 34rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.read-chip {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.8rem;
+  color: inherit;
+}
+.read-chip.changed { color: var(--cinnabar); border-color: rgba(143, 61, 36, 0.3); }
+.read-chip:disabled { cursor: default; opacity: 1; }
+
+.glyph-note {
+  margin: 0.2rem 0 0.6rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--cinnabar);
+}
+
+#poemTitle ruby { cursor: default; }
+#poemTitle ruby:hover { background: none; }
+body.show-py #poemTitle {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-end;
+  row-gap: 0.75rem;
+  letter-spacing: 0;
+  text-indent: 0;
+  line-height: 1;
+}
+body.show-py #poemTitle ruby { width: 1.5em; }
+body.show-py #poemTitle rt { font-size: 0.36em; font-weight: 500; }
+body.show-py #poemTitle .title-plain { white-space: pre; }
 body:not(.show-vern) .vern,
 body:not(.show-vern) .vern-block { display: none; }
 

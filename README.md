@@ -1,33 +1,35 @@
-# 古文
+# Guwen · 古文
 
-在自己电脑上读唐诗、宋诗、宋词和其他古文。可以搜索、看拼音、点一个字看解释，也可以让男声把一首诗读出来。
+<p align="center"><b>English</b> · <a href="README.zh-CN.md">中文</a></p>
+
+A local reader for classical Chinese poetry: Tang and Song poems, Song *ci*, and more. Search the corpus, read with pinyin above every character, tap a character to see what it means, or have a male voice read the poem aloud.
+
+The interface comes in Chinese and English; switch with the button in the top-right corner. In English mode, the line-by-line translation, character glosses and answers to your questions are all written in English, so it works as a tool for learning Chinese through its classical poetry. Explanations in each language are cached separately.
+
+With an AI provider configured, each poem you open for the first time gets its characters with several readings (in the title too) checked by the AI. Wrong readings are corrected automatically; readings that are easy to get wrong are listed under the title as "Watch the pronunciation", and clicking one shows why it is read that way. The standard is modern Mandarin (the *Xiandai Hanyu Cidian* and the official table of variant readings), and the AI can only pick from the readings a character actually has. Each poem is checked once, and any reading you correct by hand takes priority.
 
 <p>
-  <img src="images/reading.png" alt="纳兰性德《江行》，拼音在字上，白话在右侧" width="1200" />
+  <img src="images/reading-en.png" alt="Li Bai's Quiet Night Thoughts with pinyin, English translation under each line, and notes on the right" width="1200" />
 </p>
 
-<p>
-  <img src="images/catalog.png" alt="目录里的唐诗三百首" width="1200" />
-</p>
+## Get the poetry database
 
-## 把诗库放进 data
-
-一条命令。在项目目录执行：
+Run one command in the project folder:
 
 ```bash
-./获取诗库.command
+./get-poems.command
 ```
 
-它把诗库存成 `data/poems.db`，大约 450MB。
+It saves the corpus as `data/poems.db` (about 450 MB).
 
-- 本仓库里已经有建好的诗库，用 Git LFS 存放。命令会把它下载到 `data/poems.db`。
-- 如果这边没有现成文件，命令会从 [chinese-poetry](https://github.com/chinese-poetry/chinese-poetry) 下载原文，转成简体后写入同一个文件。这一步要几分钟。
+- This repository already contains a prebuilt database stored with Git LFS. The command downloads it to `data/poems.db`.
+- If no prebuilt file is available, the command downloads the source texts from [chinese-poetry](https://github.com/chinese-poetry/chinese-poetry), converts them to simplified Chinese, and builds the same file. This takes a few minutes.
 
-克隆时如果已经安装 Git LFS，`git clone` 会直接带上诗库，再跑这条命令会发现文件已在，马上结束。
+If Git LFS is installed when you clone, `git clone` already brings the database, and the command finishes right away.
 
-原文 JSON 只在需要重新生成时放在 `data/chinese-poetry/`。朗读声音缓存在 `data/speech/`。这两处都不会提交。
+The raw JSON lives in `data/chinese-poetry/` only while rebuilding. Read-aloud audio is cached in `data/speech/`. Neither is committed.
 
-准备好之后，双击 `启动.command`，或运行：
+Then double-click `start.command`, or run:
 
 ```bash
 python3 -m venv .venv
@@ -35,49 +37,49 @@ python3 -m venv .venv
 .venv/bin/python server.py
 ```
 
-浏览器打开 http://127.0.0.1:8765 。
+Open http://127.0.0.1:8765 in your browser.
 
-## 配 AI
+## Set up an AI provider
 
-不配也能读诗、搜诗、看拼音、听朗读。点一个字看解释，以及整首白话，才需要接口。
+Reading, searching, pinyin and read-aloud all work without one. You only need an AI provider for character glosses, whole-poem explanations and questions.
 
-不必把下面的供应商都填上。`.env` 放在项目目录，不会提交。里面写了密钥的才会用，没写的会跳过。**配其中一个就够。** 配了多家时，一家额度用完或连不上，就自动换下一家。
+Put a `.env` file in the project folder (it is never committed). Only providers with a key are used; the rest are skipped. **One provider is enough.** If you configure several, the app moves to the next one when a provider runs out of quota or can't be reached.
 
-自己花钱买的也可以，只要它提供兼容 OpenAI 的对话接口。在 `.env` 里写这三行，并优先使用这一家：
+Any paid service with an OpenAI-compatible chat API works too. Add these three lines to `.env` and it will be tried first:
 
 ```bash
-LLM_API_KEY=你的密钥
+LLM_API_KEY=your-key
 LLM_BASE_URL=https://api.example.com/v1
-LLM_MODEL=你买的模型名
+LLM_MODEL=your-model-name
 ```
 
-`LLM_PROVIDER` 只是显示名称，可以不写。
+`LLM_PROVIDER` is only a display name and is optional.
 
-也可以只用名单里的某一家，例如只买了 OpenRouter：
+You can also use just one provider from the built-in list, for example OpenRouter:
 
 ```bash
-OPENROUTER_API_KEY=你的密钥
-OPENROUTER_MODEL=你要用的模型
+OPENROUTER_API_KEY=your-key
+OPENROUTER_MODEL=the-model-you-want
 ```
 
-模型名和地址不写时，用程序里的默认值。要换成别的地址，再写对应的 `*_BASE_URL`。可选的名字有：
+If you leave out the model or URL, built-in defaults are used. To point at a different endpoint, set the matching `*_BASE_URL`. Supported key names:
 
-`GROQ_API_KEY`、`NVIDIA_API_KEY`、`OPENROUTER_API_KEY`、`GEMINI_API_KEY`、`CEREBRAS_API_KEY`、`SAMBANOVA_API_KEY`、`BAI_API_KEY`。
+`GROQ_API_KEY`, `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `CEREBRAS_API_KEY`, `SAMBANOVA_API_KEY`, `BAI_API_KEY`.
 
-换用顺序写在 `LLM_FREE_ORDER`，默认是 `groq,nvidia,openrouter,gemini`。名单里没有的名字不会被用到。
+The fallback order is set by `LLM_FREE_ORDER` (default `groq,nvidia,openrouter,gemini`). Names not in this list are never used.
 
-## 朗读
+## Read aloud
 
-朗读用的是微软的中文神经语音，不走上面的对话接口，也不消耗那些密钥。第一次读一首诗需要联网，声音生成后放在 `data/speech/`。语速在播放时本地调整。
+Read-aloud uses Microsoft's Mandarin neural voices. It does not go through the AI providers above and uses none of their keys. The first time you play a poem it needs an internet connection; the audio is then cached in `data/speech/`. Playback speed is adjusted locally.
 
-## 致谢
+## Acknowledgements
 
-原文来自开源项目 [chinese-poetry](https://github.com/chinese-poetry/chinese-poetry)（最全中文诗歌古典文集数据库）。感谢 [JackeyGao](https://github.com/jackeygao) 和所有贡献者把这些诗整理成可以拿来用的 JSON。这个阅读器只是在那份数据上做了简体转换、检索和阅读；诗句本身不是这里写的。
+The texts come from the open-source project [chinese-poetry](https://github.com/chinese-poetry/chinese-poetry), the most complete database of classical Chinese poetry. Thanks to [JackeyGao](https://github.com/jackeygao) and all contributors for turning these poems into usable JSON. This reader only adds simplified-Chinese conversion, search and a reading interface on top of that data; the poems themselves were not written here.
 
-该数据集以 MIT 许可证发布：
+The dataset is released under the MIT License:
 
 > Copyright (c) 2016 JackeyGao
 >
-> 许可全文见 [chinese-poetry/LICENSE](https://github.com/chinese-poetry/chinese-poetry/blob/master/LICENSE)。
+> See [chinese-poetry/LICENSE](https://github.com/chinese-poetry/chinese-poetry/blob/master/LICENSE) for the full text.
 
-目前收进本库的有：全唐诗、全宋诗、全宋词、诗经、楚辞、元曲、曹操诗集、纳兰性德、五代诗词，以及唐诗三百首、宋词三百首的篇目。论语、四书五经、蒙学等其他文集没有导入。
+Currently included: Complete Tang Poems, Complete Song Poems, Complete Song Ci, the Book of Songs (诗经), the Songs of Chu (楚辞), Yuan *qu*, the poems of Cao Cao and Nalan Xingde, poetry of the Five Dynasties, and the selections *300 Tang Poems* and *300 Song Ci*. Other collections such as the Analects, the Four Books and Five Classics, and primers are not imported.
