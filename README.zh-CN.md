@@ -2,6 +2,23 @@
 
 <p align="center"><a href="README.md">English</a> · <b>中文</b></p>
 
+<div align="center">
+<h3>☕ 请我一杯咖啡</h3>
+<p>项目免费。若它帮你读过一首诗，欢迎用对应网络的 <strong>USDT</strong> 打赏。<br/>
+<sub>请按下面的网络转入，网络不一致会无法入账。</sub></p>
+<p>
+  <img alt="BSC USDT" src="https://img.shields.io/badge/BSC-USDT%20BEP--20-F3BA2F?style=for-the-badge&logo=binance&logoColor=white" />
+  <img alt="Solana USDT" src="https://img.shields.io/badge/Solana-USDT-9945FF?style=for-the-badge&logo=solana&logoColor=white" />
+  <img alt="Tron USDT" src="https://img.shields.io/badge/Tron-USDT%20TRC--20-FF060A?style=for-the-badge&logo=tron&logoColor=white" />
+</p>
+<table>
+  <tr><th align="left">网络</th><th align="left">打赏地址</th></tr>
+  <tr><td><img alt="BSC" src="https://img.shields.io/badge/BSC-F3BA2F?style=flat-square&logo=binance&logoColor=white" /> <strong>USDT · BEP-20</strong></td><td><code>0x6E7359A42C466893E9A835fD6aFdb82E0D1Ed32d</code></td></tr>
+  <tr><td><img alt="Solana" src="https://img.shields.io/badge/Solana-9945FF?style=flat-square&logo=solana&logoColor=white" /> <strong>USDT</strong></td><td><code>Hm7f6wGdvcmLmbcXV7sdLYGJKBdwGoFrJTZPzeN8dpan</code></td></tr>
+  <tr><td><img alt="Tron" src="https://img.shields.io/badge/Tron-FF060A?style=flat-square&logo=tron&logoColor=white" /> <strong>USDT · TRC-20</strong></td><td><code>TGNrpZBqD8jnfNCb7B9W93qMmVHycoFsKJ</code></td></tr>
+</table>
+</div>
+
 在自己电脑上读唐诗、宋诗、宋词和其他古文。可以搜索、看拼音、点一个字看解释，也可以让男声把一首诗读出来。
 
 界面有中文和英文两种，右上角一键切换。切到英文后，整首讲解、点字解释和提问的回答都用英文写，适合用它学中文的外国朋友。两种语言的讲解分开保存，互不覆盖。

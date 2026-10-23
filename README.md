@@ -2,6 +2,23 @@
 
 <p align="center"><b>English</b> · <a href="README.zh-CN.md">中文</a></p>
 
+<div align="center">
+<h3>☕ Buy me a coffee</h3>
+<p>This project is free. If it helped you read a poem, tips in <strong>USDT</strong> on the matching network are welcome.<br/>
+<sub>Send on the network listed below; a mismatched network will not be credited.</sub></p>
+<p>
+  <img alt="BSC USDT" src="https://img.shields.io/badge/BSC-USDT%20BEP--20-F3BA2F?style=for-the-badge&logo=binance&logoColor=white" />
+  <img alt="Solana USDT" src="https://img.shields.io/badge/Solana-USDT-9945FF?style=for-the-badge&logo=solana&logoColor=white" />
+  <img alt="Tron USDT" src="https://img.shields.io/badge/Tron-USDT%20TRC--20-FF060A?style=for-the-badge&logo=tron&logoColor=white" />
+</p>
+<table>
+  <tr><th align="left">Network</th><th align="left">Address</th></tr>
+  <tr><td><img alt="BSC" src="https://img.shields.io/badge/BSC-F3BA2F?style=flat-square&logo=binance&logoColor=white" /> <strong>USDT · BEP-20</strong></td><td><code>0x6E7359A42C466893E9A835fD6aFdb82E0D1Ed32d</code></td></tr>
+  <tr><td><img alt="Solana" src="https://img.shields.io/badge/Solana-9945FF?style=flat-square&logo=solana&logoColor=white" /> <strong>USDT</strong></td><td><code>Hm7f6wGdvcmLmbcXV7sdLYGJKBdwGoFrJTZPzeN8dpan</code></td></tr>
+  <tr><td><img alt="Tron" src="https://img.shields.io/badge/Tron-FF060A?style=flat-square&logo=tron&logoColor=white" /> <strong>USDT · TRC-20</strong></td><td><code>TGNrpZBqD8jnfNCb7B9W93qMmVHycoFsKJ</code></td></tr>
+</table>
+</div>
+
 A local reader for classical Chinese poetry: Tang and Song poems, Song *ci*, and more. Search the corpus, read with pinyin above every character, tap a character to see what it means, or have a male voice read the poem aloud.
 
 The interface comes in Chinese and English; switch with the button in the top-right corner. In English mode, the line-by-line translation, character glosses and answers to your questions are all written in English, so it works as a tool for learning Chinese through its classical poetry. Explanations in each language are cached separately.
